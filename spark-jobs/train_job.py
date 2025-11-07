@@ -29,6 +29,7 @@ FALLBACK_PARQUET_PATH = "hdfs://namenode:9000/data/raw/stock_data"
 spark = SparkSession.builder \
     .appName("train-risk-model") \
     .master("spark://spark-master:7077") \
+    .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
     .getOrCreate()
 
 # Read parquet from HDFS; try primary path then fallback
@@ -96,6 +97,28 @@ X = df[feature_cols]
 y = df['Risk_Event']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+
+# Train model
+logger.info("Training Random Forest model...")
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Evaluate model
+y_pred = model.predict(X_test)
+logger.info("\nClassification Report:")
+logger.info(classification_report(y_test, y_pred))
+
+logger.info("\nAccuracy: %.3f", accuracy_score(y_test, y_pred))
+logger.info("Precision: %.3f", precision_score(y_test, y_pred))
+logger.info("Recall: %.3f", recall_score(y_test, y_pred))
+logger.info("F1: %.3f", f1_score(y_test, y_pred))
+logger.info("ROC AUC: %.3f", roc_auc_score(y_test, y_pred))
+
+# Save model
+model_path = os.environ.get('MODEL_SAVE_PATH', '/models/risk_model.joblib')
+logger.info("Saving model to %s", model_path)
+joblib.dump(model, model_path)
+logger.info("Model training and saving completed successfully")
 
 clf = RandomForestClassifier(n_estimators=200, max_depth=6, random_state=42, class_weight='balanced')
 clf.fit(X_train, y_train)
