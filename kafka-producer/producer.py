@@ -15,8 +15,10 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 # Config via env vars for flexibility in docker-compose
 BOOTSTRAP_SERVERS = os.getenv("BOOTSTRAP_SERVERS", "kafka:9092")
-TOPIC = os.getenv("TOPIC", "raw_prices")
+HISTORICAL_TOPIC = os.getenv("HISTORICAL_TOPIC", "historical_prices")
+DAILY_TOPIC = os.getenv("DAILY_TOPIC", "daily_prices")
 TICKER = os.getenv("TICKER", "^GSPC")
+# Set polling interval in seconds
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL_SECONDS", "60"))
 PERSIST_LAST_FILE = os.getenv("LAST_SENT_FILE", "/app/last_sent.json")
 
@@ -54,7 +56,8 @@ def save_last_sent(ts: datetime):
 def calculate_features(current_data, historical_data):
     """Tính toán features dựa trên dữ liệu hiện tại và lịch sử"""
     # Ghép dữ liệu hiện tại vào historical_data
-    df = historical_data.append(current_data)
+    # df = historical_data.append(current_data)
+    df = pd.concat([historical_data, current_data], ignore_index=True)
     
     # Tính toán các features
     df['Daily_Return'] = df['Close'].pct_change()
@@ -70,20 +73,60 @@ def calculate_features(current_data, historical_data):
         'Volume_Based_Volatility': float(latest['Volume_Based_Volatility']) if not pd.isna(latest['Volume_Based_Volatility']) else 0.0
     }
 
+def send_historical_data():
+    """Gửi dữ liệu lịch sử 1 năm lên Kafka"""
+    LOG.info("Fetching historical data for %s...", TICKER)
+    ticker = yf.Ticker(TICKER)
+    
+    # Lấy dữ liệu lịch sử 1 năm
+    historical_data = ticker.history(period="1y")
+    
+    if historical_data is None or historical_data.empty:
+        LOG.error("Failed to fetch historical data")
+        return
+    
+    # Xử lý và gửi từng record
+    for i, (idx, row) in enumerate(historical_data.iterrows()):
+        record = {
+            "timestamp": idx.isoformat(),
+            "Open": float(row["Open"]),
+            "High": float(row["High"]),
+            "Low": float(row["Low"]),
+            "Close": float(row["Close"]),
+            "Volume": int(row["Volume"]),
+        }
+        
+        # Thêm features
+        features = calculate_features(pd.DataFrame([record]), historical_data.iloc[:i])
+        record.update(features)
+        
+        # Gửi lên Kafka
+        producer.send(HISTORICAL_TOPIC, 
+                     key=idx.isoformat().encode(),
+                     value=record)
+    
+    producer.flush()
+    LOG.info("Historical data sent successfully")
+
 def fetch_and_send():
     last_sent = load_last_sent()
     LOG.info("Starting polling for %s, poll interval=%ss, bootstrap=%s", TICKER, POLL_INTERVAL, BOOTSTRAP_SERVERS)
 
     ticker = yf.Ticker(TICKER)
     
+    # Gửi dữ liệu lịch sử trước
+    send_historical_data()
+    
     # Lấy dữ liệu lịch sử cho việc tính features
     historical_data = ticker.history(period="1mo")
     
     sent_count = 0
-    try:
+    batch_counter = 0
+    new_last = None
+    try:    
         while True:
             try:
-                # fetch recent intraday data (1 day, 1m interval). yfinance may throttle; adjust interval accordingly
+                # fetch recent intraday data (5 days, 2m interval). yfinance may throttle; adjust interval accordingly
                 hist = ticker.history(period="1d", interval="1m")
             except Exception:
                 LOG.exception("yfinance fetch failed, retrying after sleep")
@@ -118,6 +161,10 @@ def fetch_and_send():
                 else:
                     ts_dt = ts.to_pydatetime()
 
+                # Kiểm tra nếu đã gửi rồi thì bỏ qua
+                # if ts_dt in hist[time_col].to_list():
+                #     continue
+
                 if last_sent is not None and ts_dt <= last_sent:
                     time.sleep(POLL_INTERVAL)
                     continue
@@ -148,15 +195,16 @@ def fetch_and_send():
                 record = {
                     "Date": ts_dt.strftime("%Y-%m-%d %H:%M:%S"),
                     "Company": TICKER.replace("^", ""),
-                    "Open": float(row.get("Open", 0.0)),
-                    "High": float(row.get("High", 0.0)),
-                    "Low": float(row.get("Low", 0.0)),
-                    "Close": float(row.get("Close", 0.0)),
-                    "Volume": int(row.get("Volume", 0) or 0),
+                    "Open": float(latest_row.get("Open", 0.0)),
+                    "High": float(latest_row.get("High", 0.0)),
+                    "Low": float(latest_row.get("Low", 0.0)),
+                    "Close": float(latest_row.get("Close", 0.0)),
+                    "Volume": int(latest_row.get("Volume", 0) or 0),
                 }
 
                 # async send
-                producer.send(TOPIC, record)
+                # kafka ghi đè message nếu key trùng lặp
+                producer.send(DAILY_TOPIC, key=ts_dt.isoformat().encode(), value=record)
                 sent_count += 1
                 batch_counter += 1
                 new_last = ts_dt
