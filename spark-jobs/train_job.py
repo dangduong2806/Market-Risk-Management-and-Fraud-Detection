@@ -24,10 +24,15 @@ TRAIN_PARQUET_PATH = os.environ.get(
 )
 FALLBACK_PARQUET_PATH = "hdfs://namenode:9000/data/raw/stock_data"
 
+# Thêm 3 dòng cuối
 spark = SparkSession.builder \
     .appName("train-risk-model") \
     .master("spark://spark-master:7077") \
     .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
+    .config("spark.executor.instances", "1") \
+    .config("spark.executor.cores", "4") \
+    .config("spark.executor.memory", "4g") \
+    .config("spark.dynamicAllocation.enabled", "false") \
     .getOrCreate()
 
 # Read parquet from HDFS; try primary path then fallback

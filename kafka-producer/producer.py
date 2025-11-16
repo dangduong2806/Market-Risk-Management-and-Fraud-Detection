@@ -212,9 +212,9 @@ if __name__ == "__main__":
     # Sau đó mới cập nhật dữ liệu mới liên tục từ yahoo finance
     threads = []
     for company in companies.keys():
-        t = threading.Thread(target=fetch_and_send, args=(company,), daemon=True)
+        t = threading.Thread(target=fetch_and_send, args=(company,)) # Xóa daemon = True
         t.start()
         threads.append(t)
     
-    # for t in threads:
-    #     t.join()
+    for t in threads:
+        t.join()

@@ -142,7 +142,14 @@ def predict_from_buffer():
     
     return None
 
-# ========== Kafka Consumer =========    
+# ========== Kafka Consumer ==========
+def safe_append(record):
+    with buffer_lock:
+        buffer.append(record)
+def safe_predict():
+    with buffer_lock:
+        return predict_from_buffer()
+    
 def consume_kafka():
     # để tạm là earliest cho test
     consumer = KafkaConsumer(
@@ -162,20 +169,15 @@ def consume_kafka():
         if record.get("Company") != COMPANY:
             continue
         
-        with buffer_lock:
-            buffer.append(record)
+        # buffer.append(record)
+        # result = predict_from_buffer()
+        safe_append(record)
+        result = safe_predict()
+        if result:
+            # Lưu result lên Redis
+            print("✅ Realtime Prediction:", result)
 
-# Prediction thread
-def prediction_worker():
-    while True:
-        pred = predict_from_buffer()
-        if pred:
-            logger.info(f"✅ Realtime Prediction: {pred}")
-        time.sleep(1) # 1 giây check buffer 1 lần
-
-# Start threads     
 threading.Thread(target=consume_kafka, daemon=True).start()
-threading.Thread(target=prediction_worker, daemon=True).start()
 
 
 # ========== FastAPI ==========
@@ -189,10 +191,11 @@ def root():
 def predict_once(records: list):
     """ Dự đoán thủ công cho 1 list record (ít nhất 3 record gần nhất) """
     try:
-        with buffer_lock:
-            for r in records:
-                buffer.append(r)
-        result = predict_from_buffer()
+        for r in records:
+            # buffer.append(r)
+            safe_append(r)
+        # result = predict_from_buffer()
+        result = safe_predict()
         return result or {"error": "Not enough data"}
     except Exception as e:
         return {"error": str(e)}

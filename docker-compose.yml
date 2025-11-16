@@ -22,6 +22,7 @@ services:
       - "9092:9092"
     depends_on:
       - zookeeper
+      - datanode # Thêm phần này ()
 
   # Thêm phần này
   kafka-cli:
@@ -82,8 +83,8 @@ services:
     command: "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077"
     environment:
       - SPARK_NO_DAEMONIZE=true
-      - SPARK_WORKER_MEMORY=1G
-      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=4G # Thêm spark worker memory
+      - SPARK_WORKER_CORES=4 # Thêm spark worker cores
       - SPARK_WORKER_WEBUI_PORT=8081
       - SPARK_HADOOP_FS_DEFAULTFS=hdfs://namenode:9000  # Cấu hình HDFS cho Spark
       - HADOOP_CONF_DIR=/opt/hadoop/conf  # Đường dẫn đến cấu hình HDFS
@@ -110,6 +111,7 @@ services:
     depends_on:
       - kafka
       - spark-master
+      
     # Thêm phần này
     user: root
   model-service-xom:
@@ -129,6 +131,7 @@ services:
     depends_on:
       - kafka
       - spark-master
+  
     # thêm phần này
     user: root
   model-service-cvx:
@@ -148,6 +151,7 @@ services:
     depends_on:
       - kafka
       - spark-master
+      
     # Thêm phần này
     user: root
   model-service-bp:
@@ -167,6 +171,7 @@ services:
     depends_on:
       - kafka
       - spark-master 
+     
     # Thêm phần này
     user: root   
 
@@ -198,6 +203,7 @@ services:
     build: ./spark-jobs
     depends_on:
       - spark-master
+      - spark-worker # Thêm cái này ()
       - namenode
       - kafka
       # Thêm cái này (không chắc)
@@ -219,7 +225,7 @@ services:
     depends_on:
       - spark-master
       - namenode
-      - spark-jobs
+      #- spark-jobs  Bỏ cái này
     command: >
       /opt/spark/bin/spark-submit
       --master spark://spark-master:7077

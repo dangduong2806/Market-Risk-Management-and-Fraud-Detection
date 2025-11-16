@@ -6,11 +6,16 @@ import logging
 
 def create_spark_session():
     """Tạo Spark Session với các cấu hình cần thiết"""
+    # Thêm 3 dòng cuối
     return SparkSession.builder \
         .appName("save-to-hdfs") \
         .master("spark://spark-master:7077") \
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
         .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
+        .config("spark.executor.instances", "1") \
+        .config("spark.executor.cores", "4") \
+        .config("spark.executor.memory", "4g") \
+        .config("spark.dynamicAllocation.enabled", "false") \
         .getOrCreate()
 
 def create_schema():
