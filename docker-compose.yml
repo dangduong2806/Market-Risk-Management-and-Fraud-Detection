@@ -334,6 +334,7 @@ services:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres-airflow/airflow
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - HOST_DATA_PATH=${HOST_DATA_PATH} # Lấy từ file .env truyền vào container
     volumes: &airflow-common-volumes # Dùng anchor để tái sử dụng volumes
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -372,7 +373,7 @@ services:
     # Dùng airflow db migrate thay vì init
     command: >
       bash -c "airflow db migrate && 
-               airflow users create --role Admin --username admin --password admin --email admin@example.com --firstname admin --lastname admin"
+               airflow users create --role Admin --username xinchao --password xinchao --email xinchao@example.com --firstname admin --lastname admin"
 
 
 # API for UI-web
@@ -389,9 +390,16 @@ services:
     volumes:
       - ./dashboard-api:/app # Mount code để tự động reload khi sửa (tùy chọn)
 
+# Thêm network
+networks:
+  default:
+    name: my_global_network
+    driver: bridge
+
 volumes:
   namenode:
   datanode:
   hadoop_conf:  # Volume mới để chia sẻ cấu hình HDFS
   redis_data: # Volume cho Redis
   airflow_db: # Volume cho PostgreSQL của Airflow
+

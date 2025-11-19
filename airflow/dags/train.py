@@ -4,6 +4,7 @@ from airflow.operators.bash import BashOperator # <--- Thêm cái này
 from datetime import datetime
 
 from docker.types import Mount
+import os
 
 @dag(
     dag_id="training_pipeline",
@@ -41,7 +42,7 @@ def train_pipeline():
         command="python3 /app/save_to_hdfs_job.py",
         auto_remove=False,
         docker_url="unix://var/run/docker.sock",
-        network_mode="big-data-project_default", # chạy docker network ls để lấy tên mạng của docker-compose.yml trên máy
+        network_mode="my_global_network", # Tên mạng của docker-compose.yml
         mount_tmp_dir=False
     )
 
@@ -52,21 +53,26 @@ def train_pipeline():
         command="python3 /app/train_job.py",
         auto_remove=False,
         docker_url="unix://var/run/docker.sock",
-        network_mode="big-data-project_default", # chạy docker network ls để lấy tên mạng của docker-compose.yml trên máy
+        network_mode="my_global_network", # Tên mạng của docker-compose.yml
         mount_tmp_dir=False
     )
 
+    # Lấy đường dẫn data từ biến môi trường
+    host_data_path = os.getenv("HOST_DATA_PATH")
+    if not host_data_path:
+        raise ValueError("Vui lòng cấu hình HOST_DATA_PATH trong file .env")
+    
     # (training fraud)
     task_train_fraud = DockerOperator(
         task_id="train_fraud_model",
         image="fraud-train:latest", # Thêm tên image
         # Sửa phần này
         command="python3 /app/train_fraud_model.py",
-        network_mode="big-data-project_default", # chạy docker network ls để lấy tên mạng của docker-compose.yml trên máy
+        network_mode="my_global_network", # Tên mạng của docker-compose.yml
         auto_remove=False,
         docker_url="unix://var/run/docker.sock",
         mounts=[
-            Mount(source='E:\\bigData\Big-Data-Project\data', target='/app/data', type='bind') # Thay bằng đường dẫn trên local
+            Mount(source=host_data_path, target='/app/data', type='bind') # Thay bằng đường dẫn trên local
         ]
     )
 
