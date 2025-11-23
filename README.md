@@ -44,13 +44,13 @@ Việc mô phỏng kiến trúc này không chỉ giúp hiểu rõ cách các t�
 
 **5. Các thao tác chạy hệ thống:**  
 
-*-----------------------------**Chuẩn bị dữ liệu cho tác vụ Fraud Detection**---------------------------------------*  
-Trong folder của hệ thống, tạo thư mục tên data, và tải 2 tập train-transactions và test-transactions ở đây:  [fraud detection data](https://www.kaggle.com/competitions/ieee-fraud-detection/data)
+*-----------------------------**Chuẩn bị dữ liệu cho tác vụ Fraud Detection**----------------------------------------*  
+Trong folder của hệ thống, tạo thư mục tên data, và tải 2 tập train-transactions và test-transactions ở đây:  [fraud detection data](https://www.kaggle.com/competitions/ieee-fraud-detection/data)  
 Lưu 2 tập train và test vừa tải vào thư mục data vừa tạo.  
 
-_LƯU Ý: CẬP NHẬT ĐƯỜNG DẪN TRỰC TIẾP CỦA THƯ MỤC DATA (nhớ giải nén 2 file train_transaction và test_transaction) TRÊN MÁY CỦA BẠN VÀO HOST_DATA_PATH TRONG FILE .ENV (BẮT BUỘC VỚI DOCKEROPERATOR)_ 
+_LƯU Ý: CẬP NHẬT ĐƯỜNG DẪN TRỰC TIẾP CỦA THƯ MỤC DATA TRÊN MÁY CỦA BẠN VÀO HOST_DATA_PATH TRONG FILE .ENV (BẮT BUỘC VỚI DOCKEROPERATOR)_ 
 
-*-----------------------------**Khởi động toàn bộ hệ thống**---------------------------------------*
+*-----------------------------**Khởi động toàn bộ hệ thống**---------------------------------------------------------*
 - Với hệ điều hành linux: dùng file Makefile: 
     + make build => Build các images và Up các containers
     + make up => Up các containers (khi đã build image rồi)
@@ -108,6 +108,7 @@ Test samples:
 
 
 ** Sau đó ta có thể xem kết quả dự đoán trong log của container model-service của từng công ty và container fraud-consumer hoặc vào localhost:8501 UI của hệ thống.
+
 
 
 
